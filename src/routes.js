@@ -1,8 +1,5 @@
 import { Router } from 'express';
 import multer from 'multer';
-import Brute from 'express-brute';
-import BruteRedis from 'express-brute-redis';
-
 import UserController from './app/controllers/UserController';
 import SessionController from './app/controllers/SessionController';
 import authMiddleware from './app/middlewares/auth';
@@ -13,24 +10,9 @@ import RecoveryPasswordController from './app/controllers/RecoveryPasswordContro
 const routes = new Router();
 const upload = multer(multerConfig);
 
-const bruteStore = new BruteRedis({
-  host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT,
-});
-
-const bruteForce = new Brute(bruteStore);
-
-routes.post('/session', bruteForce.prevent, SessionController.store);
-routes.post(
-  '/recoverypassword',
-  bruteForce.prevent,
-  RecoveryPasswordController.store
-);
-routes.put(
-  '/resetpassword',
-  bruteForce.prevent,
-  RecoveryPasswordController.update
-);
+routes.post('/session', SessionController.store);
+routes.post('/recoverypassword', RecoveryPasswordController.store);
+routes.put('/resetpassword', RecoveryPasswordController.update);
 
 routes.use(authMiddleware); // middleware de autenticação. Toda rota a partir daqui requer autenticação
 
