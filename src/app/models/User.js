@@ -13,6 +13,7 @@ class User extends Model {
         recovery_date: Sequelize.DATE,
       },
       {
+        paranoid: true, // Soft deletes
         sequelize,
       }
     );
