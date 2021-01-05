@@ -1,23 +1,45 @@
 import * as Yup from 'yup';
 import User from '../models/User';
+import addFiltersPaginationAndOrder from '../../util/addFiltersPaginationAndOrder';
+import defaultIndexReturn from '../../util/defaultIndexReturn';
 
 class UserController {
   async index(req, res) {
-    const users = await User.findAll({
-      attributes: ['id', 'name', 'email'],
-    });
+    try {
+      const { where, order, offset, limit } = addFiltersPaginationAndOrder(
+        req.query
+      );
 
-    return res.json(users);
+      const users = await User.findAndCountAll({
+        where,
+        order,
+        offset,
+        limit,
+        distinct: true,
+      });
+
+      return res.json(defaultIndexReturn(users, limit));
+    } catch (err) {
+      return res.status(500).json({
+        error: `Erro interno de servidor: ${err.message}`,
+      });
+    }
   }
 
   async show(req, res) {
-    const { id } = req.params;
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(400).json({ error: 'User does not exists.' });
+    try {
+      const { id } = req.params;
+      const user = await User.findByPk(id);
+      if (!user) {
+        return res.status(400).json({ error: 'User does not exists.' });
+      }
+      const { name, email } = user;
+      return res.json({ id, name, email });
+    } catch (err) {
+      return res.status(500).json({
+        error: `Erro interno de servidor: ${err.message}`,
+      });
     }
-    const { name, email } = user;
-    return res.json({ id, name, email });
   }
 
   async store(req, res) {
@@ -31,23 +53,34 @@ class UserController {
         .min(6),
     });
 
-    if (!(await schema.isValid(req.body))) {
-      return res.status(401).json({ error: 'Validation fails.' });
-    }
-
-    const userExists = await User.findOne({ where: { email: req.body.email } });
-    if (userExists) {
-      return res.status(400).json({ error: 'E-mail já existente' });
-    }
-
-    const { id, name, email, provider } = await User.create(req.body);
-
-    return res.json({
-      id,
-      name,
-      email,
-      provider,
+    let error = '';
+    await schema.validate(req.body).catch(err => {
+      error = err.message;
     });
+    if (!(await schema.isValid(req.body))) {
+      return res.status(400).json({ error });
+    }
+    try {
+      const userExists = await User.findOne({
+        where: { email: req.body.email },
+      });
+      if (userExists) {
+        return res.status(400).json({ error: 'E-mail já existente' });
+      }
+
+      const { id, name, email, provider } = await User.create(req.body);
+
+      return res.json({
+        id,
+        name,
+        email,
+        provider,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        error: `Erro interno de servidor: ${err.message}`,
+      });
+    }
   }
 
   async update(req, res) {
@@ -64,35 +97,43 @@ class UserController {
       ),
     });
 
-    if (!(await schema.isValid(req.body))) {
-      return res.status(401).json({ error: 'Validation fails.' });
-    }
-
-    const { email, oldPassword } = req.body;
-
-    const user = await User.findByPk(req.userId);
-
-    if (email && email !== user.email) {
-      console.log('entrou');
-      const userExists = await User.findOne({ where: { email } });
-
-      if (userExists) {
-        return res.status(400).json({ error: 'User already exists.' });
-      }
-    }
-
-    if (oldPassword && !(await user.checkPassword(oldPassword))) {
-      return res.status(401).json({ error: 'Password does not match' });
-    }
-
-    const { id, name, provider } = await user.update(req.body);
-
-    return res.json({
-      id,
-      name,
-      email,
-      provider,
+    let error = '';
+    await schema.validate(req.body).catch(err => {
+      error = err.message;
     });
+    if (!(await schema.isValid(req.body))) {
+      return res.status(400).json({ error });
+    }
+    try {
+      const { id } = req.params;
+      const { email, oldPassword } = req.body;
+
+      const user = await User.findByPk(id);
+
+      if (email && email !== user.email) {
+        const userExists = await User.findOne({ where: { email } });
+
+        if (userExists) {
+          return res.status(400).json({ error: 'User already exists.' });
+        }
+      }
+
+      if (oldPassword && !(await user.checkPassword(oldPassword))) {
+        return res.status(401).json({ error: 'Password does not match' });
+      }
+
+      const { name } = await user.update(req.body);
+
+      return res.json({
+        id,
+        name,
+        email,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        error: `Erro interno de servidor: ${err.message}`,
+      });
+    }
   }
 
   async delete(req, res) {
@@ -101,11 +142,11 @@ class UserController {
     if (!user) {
       return res.status(400).json({ error: 'User does not exists.' });
     }
-    if (user.email === 'admin@fastfeet.com') {
+    if (user.email === 'admin@admin.com') {
       return res.status(400).json({ error: 'This user cannot be deleted.' });
     }
     try {
-      user.destroy({
+      await user.destroy({
         where: { id },
       });
       return res.json();

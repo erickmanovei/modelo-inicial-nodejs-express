@@ -7,7 +7,6 @@ class RecoveryPasswordMail {
 
   async handle({ data }) {
     const { user, code } = data;
-    console.log('a fila executou');
     await Mail.sendMail({
       to: `${user.name} <${user.email}>`,
       subject: 'Recuperação de Senha',

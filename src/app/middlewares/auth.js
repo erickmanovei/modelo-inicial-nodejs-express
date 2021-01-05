@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { promisify } from 'util';
 import authConfig from '../../config/auth';
+import User from '../models/User';
 
 export default async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -13,14 +14,21 @@ export default async (req, res, next) => {
 
   try {
     const decoded = await promisify(jwt.verify)(token, authConfig.secret);
+    const user = await User.findOne({
+      where: {
+        id: decoded.id,
+        deleted_at: null,
+      },
+      attributes: ['id', 'name', 'email'],
+    });
 
-    req.userId = decoded.id;
+    req.user = user;
 
-    console.log(decoded);
     return next();
   } catch (err) {
-    return res
-      .status(401)
-      .json({ error: 'Token invalid', message: err.message });
+    return res.status(401).json({
+      error: 'Token invalid',
+      message: err.message,
+    });
   }
 };

@@ -64,7 +64,6 @@ class RecoveryPasswordController {
       return res.status(400).json({ error: 'User not found or invalid code.' });
     }
     const diff = differenceInMinutes(new Date(), new Date(user.recovery_date));
-    console.log('diff', diff);
 
     if (diff > 5) {
       return res.status(401).json({ error: 'This code has expired!' });
